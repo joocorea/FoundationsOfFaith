@@ -193,7 +193,7 @@
     }
     .saved-memo-text.collapsed {
         display: -webkit-box;
-        -webkit-line-clamp: 1;
+        -webkit-line-clamp: 3; /* 1줄에서 3줄로 변경 */
         -webkit-box-orient: vertical;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -208,10 +208,10 @@
         background-color: #6c757d;
         color: white;
         border: none;
-        padding: 6px 12px;
+        padding: 4px 8px; /* 크기 줄임 */
         border-radius: 4px;
         cursor: pointer;
-        font-size: 0.9rem;
+        font-size: 0.8rem; /* 글자 크기 줄임 */
         font-weight: bold;
     }
     .saved-memo-action-btn:active, .saved-memo-action-btn:hover {
@@ -221,10 +221,10 @@
         background-color: #ff9800;
         color: white;
         border: none;
-        padding: 6px 12px;
+        padding: 4px 8px; /* 크기 줄임 */
         border-radius: 4px;
         cursor: pointer;
-        font-size: 0.9rem;
+        font-size: 0.8rem; /* 글자 크기 줄임 */
         font-weight: bold;
     }
     .saved-memo-edit-btn:active, .saved-memo-edit-btn:hover {
@@ -1407,6 +1407,14 @@
                 if (!isNew) {
                     textDiv.innerHTML = initialText;
                     savedMemoDiv.classList.add('active');
+                    
+                    // 텍스트가 3줄 이하인지 확인하여 '펼치기' 버튼 숨기기
+                    setTimeout(() => {
+                        if (textDiv.scrollHeight <= textDiv.clientHeight) {
+                            toggleBtn.style.display = 'none';
+                            textDiv.classList.remove('collapsed');
+                        }
+                    }, 0);
                 }
                 
                 const memoContainer = document.createElement('div');
