@@ -114,17 +114,40 @@
     .memo-container.active {
         display: block;
     }
-    .memo-textarea {
+    .memo-toolbar {
+        display: flex;
+        gap: 5px;
+        margin-bottom: 5px;
+    }
+    .memo-toolbar-btn {
+        padding: 4px 8px;
+        background: #e0e0e0;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: bold;
+    }
+    .memo-toolbar-btn:hover {
+        background: #d0d0d0;
+    }
+    .memo-editor {
         width: 100%;
-        height: 80px;
+        min-height: 80px;
         padding: 10px;
         border: 1px solid #ccc;
         border-radius: 5px;
         font-size: 1.2rem;
         font-family: inherit;
-        resize: vertical;
+        font-weight: normal; /* 추가: 기본 글씨체를 굵지 않게 설정 */
         box-sizing: border-box;
         margin-bottom: 10px;
+        background: white;
+        overflow-y: auto;
+        outline: none;
+    }
+    .memo-editor:empty:before {
+        content: attr(placeholder);
+        color: #999;
     }
     .memo-buttons {
         display: flex;
@@ -160,7 +183,7 @@
         margin-bottom: 10px;
         border-radius: 4px;
         font-size: 1.2rem;
-        font-weight: bold;
+        font-weight: normal; /* 수정: 저장된 메모도 기본적으로 굵지 않게 표시 */
         color: #333;
         display: none;
     }
@@ -168,9 +191,31 @@
         white-space: pre-wrap;
         margin-bottom: 10px;
     }
+    .saved-memo-text.collapsed {
+        display: -webkit-box;
+        -webkit-line-clamp: 1;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: normal;
+    }
     .saved-memo-controls {
         display: flex;
         justify-content: flex-end;
+        gap: 5px;
+    }
+    .saved-memo-action-btn {
+        background-color: #6c757d;
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        font-weight: bold;
+    }
+    .saved-memo-action-btn:active, .saved-memo-action-btn:hover {
+        background-color: #5a6268;
     }
     .saved-memo-edit-btn {
         background-color: #ff9800;
@@ -1237,13 +1282,19 @@
         const safeSetItem = (key, val) => { if(storageAvailable) localStorage.setItem(key, val); else memoryStorage[key] = val; };
         const safeRemoveItem = (key) => { if(storageAvailable) localStorage.removeItem(key); else delete memoryStorage[key]; };
 
-        const paragraphs = document.querySelectorAll('.chapter-container p');
         const memoElements = {}; // pId를 키로 하여 DOM 요소들 저장
+        
+        const elementsConfig = [
+            { elements: document.querySelectorAll('.chapter-container p'), prefix: 'memo-p' },
+            { elements: document.querySelectorAll('.chapter-container h3'), prefix: 'memo-h3' },
+            { elements: document.querySelectorAll('.chapter-container h4'), prefix: 'memo-h4' }
+        ];
 
-        paragraphs.forEach((p, index) => {
-            if (p.querySelector('a.home-btn') || p.innerHTML.includes('더 읽어보면') || p.innerHTML.includes('서로 함께(ONE ANOTHER)')) return;
+        elementsConfig.forEach(config => {
+            config.elements.forEach((p, index) => {
+                if (p.querySelector('a.home-btn') || p.innerHTML.includes('더 읽어보면') || p.innerHTML.includes('서로 함께(ONE ANOTHER)')) return;
 
-            const pId = 'memo-p-' + index;
+                const pId = config.prefix + '-' + index;
             
             const icon = document.createElement('span');
             icon.className = 'memo-icon';
@@ -1293,21 +1344,68 @@
                 savedMemoDiv.className = 'saved-memo';
                 
                 const textDiv = document.createElement('div');
-                textDiv.className = 'saved-memo-text';
+                textDiv.className = 'saved-memo-text collapsed';
                 
                 const controlsDiv = document.createElement('div');
                 controlsDiv.className = 'saved-memo-controls';
+                
+                const upBtn = document.createElement('button');
+                upBtn.className = 'saved-memo-action-btn';
+                upBtn.innerHTML = '▲';
+                upBtn.onclick = (e) => {
+                    e.preventDefault();
+                    if(idx > 0) {
+                        const temp = memos[idx];
+                        memos[idx] = memos[idx-1];
+                        memos[idx-1] = temp;
+                        saveData();
+                        renderMemos();
+                    }
+                };
+                
+                const downBtn = document.createElement('button');
+                downBtn.className = 'saved-memo-action-btn';
+                downBtn.innerHTML = '▼';
+                downBtn.onclick = (e) => {
+                    e.preventDefault();
+                    if(idx < memos.length - 1 && idx !== -1) {
+                        const temp = memos[idx];
+                        memos[idx] = memos[idx+1];
+                        memos[idx+1] = temp;
+                        saveData();
+                        renderMemos();
+                    }
+                };
+
+                const toggleBtn = document.createElement('button');
+                toggleBtn.className = 'saved-memo-action-btn';
+                toggleBtn.innerText = '펼치기';
+                toggleBtn.onclick = (e) => {
+                    e.preventDefault();
+                    if(textDiv.classList.contains('collapsed')) {
+                        textDiv.classList.remove('collapsed');
+                        toggleBtn.innerText = '접기';
+                    } else {
+                        textDiv.classList.add('collapsed');
+                        toggleBtn.innerText = '펼치기';
+                    }
+                };
                 
                 const editBtn = document.createElement('button');
                 editBtn.className = 'saved-memo-edit-btn';
                 editBtn.innerText = '편집';
                 
+                if(!isNew) {
+                    controlsDiv.appendChild(upBtn);
+                    controlsDiv.appendChild(downBtn);
+                    controlsDiv.appendChild(toggleBtn);
+                }
                 controlsDiv.appendChild(editBtn);
                 savedMemoDiv.appendChild(textDiv);
                 savedMemoDiv.appendChild(controlsDiv);
                 
                 if (!isNew) {
-                    textDiv.innerText = initialText;
+                    textDiv.innerHTML = initialText;
                     savedMemoDiv.classList.add('active');
                 }
                 
@@ -1317,7 +1415,11 @@
                     memoContainer.classList.add('active');
                 }
                 memoContainer.innerHTML = `
-                    <textarea class="memo-textarea" placeholder="여기에 메모를 입력하세요..."></textarea>
+                    <div class="memo-toolbar">
+                        <button class="memo-toolbar-btn" onmousedown="document.execCommand('bold',false,null);return false;"><b>B</b></button>
+                        <button class="memo-toolbar-btn" onmousedown="document.execCommand('underline',false,null);return false;"><u>U</u></button>
+                    </div>
+                    <div class="memo-editor" contenteditable="true" placeholder="여기에 메모를 입력하세요..."></div>
                     <div class="memo-buttons">
                         <button class="memo-btn memo-delete">삭제</button>
                         <button class="memo-btn memo-cancel">취소</button>
@@ -1325,20 +1427,20 @@
                     </div>
                 `;
                 
-                const textarea = memoContainer.querySelector('.memo-textarea');
-                textarea.value = initialText;
+                const editor = memoContainer.querySelector('.memo-editor');
+                editor.innerHTML = initialText;
                 
                 const editMemo = (e) => {
                     e.preventDefault();
                     document.querySelectorAll('.memo-container').forEach(c => c.classList.remove('active'));
                     document.querySelectorAll('.saved-memo').forEach(s => {
                         const sTextDiv = s.querySelector('.saved-memo-text');
-                        if(sTextDiv && sTextDiv.innerText.trim() !== '') s.classList.add('active');
+                        if(sTextDiv && sTextDiv.innerHTML.trim() !== '') s.classList.add('active');
                     });
                     
                     savedMemoDiv.classList.remove('active');
                     memoContainer.classList.add('active');
-                    textarea.focus();
+                    editor.focus();
                 };
                 editBtn.addEventListener('click', editMemo);
                 editBtn.addEventListener('touchend', editMemo);
@@ -1351,7 +1453,7 @@
                     } else {
                         memoContainer.classList.remove('active');
                         savedMemoDiv.classList.add('active');
-                        textarea.value = initialText;
+                        editor.innerHTML = initialText;
                     }
                 };
                 memoContainer.querySelector('.memo-cancel').addEventListener('click', cancelMemo);
@@ -1375,8 +1477,8 @@
                 
                 const saveMemo = (e) => {
                     e.preventDefault();
-                    const text = textarea.value.trim();
-                    if (text) {
+                    const text = editor.innerHTML.trim();
+                    if (text && text !== '<br>') {
                         if (isNew) {
                             memos.push(text);
                         } else {
@@ -1402,9 +1504,9 @@
                     });
                     document.querySelectorAll('.saved-memo').forEach(s => {
                         const sTextDiv = s.querySelector('.saved-memo-text');
-                        if(sTextDiv && sTextDiv.innerText.trim() !== '') s.classList.add('active');
+                        if(sTextDiv && sTextDiv.innerHTML.trim() !== '') s.classList.add('active');
                     });
-                    textarea.focus();
+                    editor.focus();
                 }
             };
 
@@ -1434,7 +1536,8 @@
                     renderMemos();
                 }
             };
-        }); // forEach end
+            }); // inner forEach end
+        }); // outer forEach end
 
         // 화면 갱신 함수 (로컬용)
         function updateAllMemosFromLocal() {
