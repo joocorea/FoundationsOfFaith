@@ -230,6 +230,7 @@
         .saved-memo-text.collapsed {
             display: -webkit-box;
             -webkit-line-clamp: 3;
+            line-clamp: 3;
             /* 1줄에서 3줄로 변경 */
             -webkit-box-orient: vertical;
             overflow: hidden;
@@ -365,7 +366,7 @@
         .font-size-controls {
             position: fixed;
             bottom: 20px;
-            right: 20px;
+            left: 20px;
             display: flex;
             flex-direction: column;
             gap: 10px;
@@ -397,6 +398,24 @@
 
         .font-size-btn:active {
             transform: scale(0.95);
+        }
+
+        .font-size-btn.hidden {
+            display: none !important;
+        }
+
+        #btn-toggle-font {
+            width: 35px;
+            height: 35px;
+            font-size: 0.9rem;
+            background-color: rgba(0, 0, 0, 0.2);
+            color: rgba(255, 255, 255, 0.7);
+            box-shadow: none;
+        }
+
+        #btn-toggle-font:hover,
+        #btn-toggle-font:active {
+            background-color: rgba(0, 0, 0, 0.4);
         }
     </style>
 </head>
@@ -2064,20 +2083,48 @@
             }
 
             // --- 글씨 크기 조절 로직 ---
+            const btnToggleFont = document.getElementById('btn-toggle-font');
             const btnIncreaseFont = document.getElementById('btn-increase-font');
             const btnDecreaseFont = document.getElementById('btn-decrease-font');
             let currentFontScale = 100; // 기본 100%
+            let hideTimeout;
 
             const updateFontSize = () => {
                 document.documentElement.style.fontSize = currentFontScale + '%';
             };
 
-            if (btnIncreaseFont && btnDecreaseFont) {
+            const resetHideTimeout = () => {
+                clearTimeout(hideTimeout);
+                hideTimeout = setTimeout(() => {
+                    toggleFontControls(false);
+                }, 3000); // 3초 후 숨김
+            };
+
+            const toggleFontControls = (show) => {
+                if (show) {
+                    btnToggleFont.classList.add('hidden');
+                    btnIncreaseFont.classList.remove('hidden');
+                    btnDecreaseFont.classList.remove('hidden');
+                    resetHideTimeout();
+                } else {
+                    btnToggleFont.classList.remove('hidden');
+                    btnIncreaseFont.classList.add('hidden');
+                    btnDecreaseFont.classList.add('hidden');
+                    clearTimeout(hideTimeout);
+                }
+            };
+
+            if (btnToggleFont && btnIncreaseFont && btnDecreaseFont) {
+                btnToggleFont.addEventListener('click', () => {
+                    toggleFontControls(true);
+                });
+
                 btnIncreaseFont.addEventListener('click', () => {
                     if (currentFontScale < 150) { // 최대 150%
                         currentFontScale += 10;
                         updateFontSize();
                     }
+                    resetHideTimeout();
                 });
 
                 btnDecreaseFont.addEventListener('click', () => {
@@ -2085,14 +2132,16 @@
                         currentFontScale -= 10;
                         updateFontSize();
                     }
+                    resetHideTimeout();
                 });
             }
         });
     </script>
     <!-- 글씨 크기 조절 버튼 -->
     <div class="font-size-controls">
-        <button class="font-size-btn" id="btn-increase-font" aria-label="글꼴 크기 크게" title="글꼴 크기 크게">A+</button>
-        <button class="font-size-btn" id="btn-decrease-font" aria-label="글꼴 크기 작게" title="글꼴 크기 작게">A-</button>
+        <button class="font-size-btn" id="btn-toggle-font" aria-label="글꼴 크기 조절 열기" title="글꼴 크기 조절 열기">▲</button>
+        <button class="font-size-btn hidden" id="btn-increase-font" aria-label="글꼴 크기 크게" title="글꼴 크기 크게">A+</button>
+        <button class="font-size-btn hidden" id="btn-decrease-font" aria-label="글꼴 크기 작게" title="글꼴 크기 작게">A-</button>
     </div>
 
 </body>
