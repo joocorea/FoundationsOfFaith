@@ -306,6 +306,83 @@
     #btn-toggle-font:active {
         background-color: rgba(0, 0, 0, 0.4);
     }
+
+    /* 출력 버튼 스타일 */
+    .print-btn {
+        display: block;
+        width: 100%;
+        text-align: center;
+        background-color: #17a2b8;
+        color: #ffffff;
+        text-decoration: none;
+        padding: 15px;
+        border: none;
+        border-radius: 8px;
+        margin-top: 10px;
+        font-size: 1.2rem;
+        font-weight: bold;
+        cursor: pointer;
+        transition: background-color 0.3s;
+        font-family: inherit;
+    }
+
+    .print-btn:active,
+    .print-btn:hover {
+        background-color: #138496;
+    }
+
+    @media print {
+        /* 모든 버튼, UI 요소 숨기기 (기본 인쇄 및 챕터 인쇄 공통) */
+        button, 
+        .print-btn, 
+        .home-btn, 
+        .auth-container, 
+        .font-size-controls,
+        .memo-icon,
+        .memo-toolbar,
+        .memo-buttons,
+        .saved-memo-controls {
+            display: none !important;
+        }
+        
+        /* 챕터 버튼으로 인쇄할 때만 적용 */
+        body.print-active .toc,
+        body.print-active .chapter-container:not(.print-target) {
+            display: none !important;
+        }
+        
+        @page {
+            margin: 25mm; /* 상하좌우 여백 넓게 설정 (약 2.5cm) */
+            @bottom-center {
+                content: counter(page);
+                font-size: 16px; /* 12px에서 16px로 키움 */
+                color: #555;
+            }
+        }
+
+        /* 인쇄 시 여백 및 스타일 최적화 */
+        body {
+            background-color: white;
+            padding: 0;
+        }
+        .chapter-container {
+            box-shadow: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        /* 저장된 메모 전체 펼쳐서 인쇄 */
+        .saved-memo-text,
+        .saved-memo-text.collapsed {
+            display: block !important;
+            -webkit-line-clamp: unset !important;
+            line-clamp: unset !important;
+            overflow: visible !important;
+            text-overflow: clip !important;
+            max-height: none !important;
+            height: auto !important;
+        }
+    }
 </style>
 </head>
 <body>
@@ -1353,7 +1430,37 @@
                 editBtn.className = 'saved-memo-edit-btn';
                 editBtn.innerText = '편집';
                 
-                controlsDiv.appendChild(editBtn);
+                const buttonsWrapper = document.createElement('div');
+                buttonsWrapper.style.display = 'none';
+                buttonsWrapper.style.gap = '5px';
+                buttonsWrapper.appendChild(editBtn);
+
+                const expandBtn = document.createElement('button');
+                expandBtn.className = 'saved-memo-action-btn';
+                expandBtn.innerHTML = '◀';
+                expandBtn.style.opacity = '0.5';
+                
+                let menuTimeout;
+                const resetMenuTimeout = () => {
+                    clearTimeout(menuTimeout);
+                    menuTimeout = setTimeout(() => {
+                        buttonsWrapper.style.display = 'none';
+                        expandBtn.style.display = 'block';
+                    }, 3000);
+                };
+
+                expandBtn.onclick = (e) => {
+                    e.preventDefault();
+                    expandBtn.style.display = 'none';
+                    buttonsWrapper.style.display = 'flex';
+                    resetMenuTimeout();
+                };
+
+                buttonsWrapper.onclick = () => resetMenuTimeout();
+                buttonsWrapper.ontouchstart = () => resetMenuTimeout();
+
+                controlsDiv.appendChild(expandBtn);
+                controlsDiv.appendChild(buttonsWrapper);
                 savedMemoDiv.appendChild(textDiv);
                 savedMemoDiv.appendChild(controlsDiv);
                 
@@ -1616,5 +1723,29 @@
     <button class="font-size-btn hidden" id="btn-decrease-font" aria-label="글꼴 크기 작게" title="글꼴 크기 작게">A-</button>
 </div>
 
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const chapters = document.querySelectorAll('.chapter-container');
+        chapters.forEach(chapter => {
+            const homeBtn = chapter.querySelector('.home-btn');
+            if (homeBtn) {
+                const printBtn = document.createElement('button');
+                printBtn.className = 'print-btn';
+                printBtn.textContent = '🖨️ 이 챕터 출력하기';
+                printBtn.onclick = function() {
+                    document.body.classList.add('print-active');
+                    chapter.classList.add('print-target');
+                    window.print();
+                };
+                homeBtn.parentNode.insertBefore(printBtn, homeBtn.nextSibling);
+            }
+        });
+
+        window.addEventListener('afterprint', () => {
+            document.body.classList.remove('print-active');
+            document.querySelectorAll('.print-target').forEach(el => el.classList.remove('print-target'));
+        });
+    });
+</script>
 </body>
 </html>
