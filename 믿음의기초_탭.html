@@ -255,6 +255,40 @@
         background-color: #f44336;
         display: none;
     }
+    
+    /* 글씨 크기 조절 버튼 스타일 */
+    .font-size-controls {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        z-index: 1000;
+    }
+    .font-size-btn {
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 45px;
+        height: 45px;
+        font-size: 1.1rem;
+        font-weight: bold;
+        cursor: pointer;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        transition: background-color 0.3s, transform 0.1s;
+        -webkit-tap-highlight-color: transparent;
+    }
+    .font-size-btn:hover, .font-size-btn:active {
+        background-color: #0056b3;
+    }
+    .font-size-btn:active {
+        transform: scale(0.95);
+    }
 </style>
 </head>
 <body>
@@ -1501,7 +1535,39 @@
             // 클라우드 설정을 하지 않았을 경우 로컬 모드로 작동
             updateAllMemosFromLocal();
         }
+
+        // --- 글씨 크기 조절 로직 ---
+        const btnIncreaseFont = document.getElementById('btn-increase-font');
+        const btnDecreaseFont = document.getElementById('btn-decrease-font');
+        let currentFontScale = 100; // 기본 100%
+
+        const updateFontSize = () => {
+            document.documentElement.style.fontSize = currentFontScale + '%';
+        };
+
+        if (btnIncreaseFont && btnDecreaseFont) {
+            btnIncreaseFont.addEventListener('click', () => {
+                if (currentFontScale < 150) { // 최대 150%
+                    currentFontScale += 10;
+                    updateFontSize();
+                }
+            });
+
+            btnDecreaseFont.addEventListener('click', () => {
+                if (currentFontScale > 70) { // 최소 70%
+                    currentFontScale -= 10;
+                    updateFontSize();
+                }
+            });
+        }
     });
 </script>
+
+<!-- 글씨 크기 조절 버튼 -->
+<div class="font-size-controls">
+    <button class="font-size-btn" id="btn-increase-font" aria-label="글꼴 크기 크게" title="글꼴 크기 크게">A+</button>
+    <button class="font-size-btn" id="btn-decrease-font" aria-label="글꼴 크기 작게" title="글꼴 크기 작게">A-</button>
+</div>
+
 </body>
 </html>
