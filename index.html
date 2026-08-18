@@ -102,6 +102,56 @@
             background-color: #218838;
         }
 
+        /* 형광펜 및 툴바 스타일 */
+        .highlighted-text {
+            background-color: rgba(255, 235, 59, 0.6);
+            border-radius: 3px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            padding: 2px 0;
+        }
+
+        .highlighted-text:hover {
+            background-color: rgba(255, 235, 59, 1);
+        }
+
+        #highlight-toolbar {
+            position: absolute;
+            display: none;
+            background-color: #333;
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 1rem;
+            cursor: pointer;
+            z-index: 2000;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            font-weight: bold;
+            user-select: none;
+            -webkit-user-select: none;
+            transform: translateX(-50%);
+        }
+
+        #highlight-toolbar:active {
+            background-color: #555;
+        }
+
+        #highlight-toolbar::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -6px;
+            border-width: 6px;
+            border-style: solid;
+            border-color: #333 transparent transparent transparent;
+        }
+
+        .p-content {
+            position: relative;
+        }
+
+
         /* 메모 관련 스타일 */
         .memo-icon {
             cursor: pointer;
@@ -489,11 +539,20 @@
                 max-height: none !important;
                 height: auto !important;
             }
+
+            /* 형광펜 배경색 출력 강제 */
+            .highlighted-text {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                background-color: rgba(255, 235, 59, 0.6) !important;
+            }
         }
     </style>
 </head>
 
 <body>
+    <!-- 형광펜 플로팅 툴바 -->
+    <div id="highlight-toolbar">🖍️ 형광펜</div>
 
     <div class="auth-container" id="auth-container">
         <div class="auth-info" id="user-name">클라우드 동기화 켜짐 (로그인 필요)</div>
@@ -1826,6 +1885,7 @@
 
             const memoElements = {}; // pId를 키로 하여 DOM 요소들 저장
             const checkElements = {}; // pId를 키로 하여 체크박스 요소들 저장
+            const pContentElements = {}; // pId를 키로 하여 텍스트 요소들 저장
 
             const elementsConfig = [
                 { elements: document.querySelectorAll('.chapter-container p'), prefix: 'memo-p' },
@@ -1838,6 +1898,16 @@
                     if (p.querySelector('a.home-btn') || p.innerHTML.includes('더 읽어보면') || p.innerHTML.includes('서로 함께(ONE ANOTHER)')) return;
 
                     const pId = config.prefix + '-' + index;
+
+                    // 형광펜 기능과 체크박스 분리를 위해 원래 텍스트를 감싸는 span 생성
+                    const pContent = document.createElement('span');
+                    pContent.className = 'p-content';
+                    pContent.dataset.pId = pId;
+                    while (p.firstChild) {
+                        pContent.appendChild(p.firstChild);
+                    }
+                    p.appendChild(pContent);
+                    pContentElements[pId] = pContent;
 
                     // --- 읽음 확인용 체크박스 추가 (일반 문단(p)에만 적용) ---
                     if (p.tagName.toLowerCase() === 'p') {
@@ -1862,7 +1932,7 @@
                             saveCheckbox();
                         });
                         
-                        p.insertBefore(checkbox, p.firstChild);
+                        p.insertBefore(checkbox, pContent);
 
                         checkElements[pId] = {
                             setChecked: (checked) => {
@@ -2154,6 +2224,15 @@
                 }); // inner forEach end
             }); // outer forEach end
 
+            // 형광펜 저장용
+            const saveHighlightData = (pId, htmlContent) => {
+                if (typeof useCloud !== 'undefined' && useCloud && typeof currentUser !== 'undefined' && currentUser) {
+                    userDocRef.set({ ['hl_' + pId]: htmlContent }, { merge: true });
+                } else {
+                    safeSetItem('hl_' + pId, htmlContent);
+                }
+            };
+
             // 화면 갱신 함수 (로컬용)
             function updateAllMemosFromLocal() {
                 Object.keys(memoElements).forEach(pId => {
@@ -2163,6 +2242,12 @@
                 Object.keys(checkElements).forEach(pId => {
                     const checked = safeGetItem('chk_' + pId) === 'true';
                     checkElements[pId].setChecked(checked);
+                });
+                Object.keys(pContentElements).forEach(pId => {
+                    const hlHtml = safeGetItem('hl_' + pId);
+                    if (hlHtml) {
+                        pContentElements[pId].innerHTML = hlHtml;
+                    }
                 });
             }
 
@@ -2176,7 +2261,105 @@
                     const checked = data ? data['chk_' + pId] : false;
                     checkElements[pId].setChecked(!!checked);
                 });
+                Object.keys(pContentElements).forEach(pId => {
+                    const hlHtml = data ? data['hl_' + pId] : null;
+                    if (hlHtml) {
+                        pContentElements[pId].innerHTML = hlHtml;
+                    }
+                });
             }
+
+            // --- 형광펜 툴바 및 이벤트 처리 ---
+            const highlightToolbar = document.getElementById('highlight-toolbar');
+            let currentSelectionRange = null;
+            let currentTargetPContent = null;
+
+            document.addEventListener('selectionchange', () => {
+                const selection = window.getSelection();
+                if (selection.isCollapsed || selection.rangeCount === 0) {
+                    highlightToolbar.style.display = 'none';
+                    return;
+                }
+
+                const range = selection.getRangeAt(0);
+                // 선택 영역이 p-content 안에 있는지 확인
+                let container = range.commonAncestorContainer;
+                if (container.nodeType === 3) container = container.parentNode;
+                const pContent = container.closest('.p-content');
+
+                if (pContent) {
+                    const rect = range.getBoundingClientRect();
+                    highlightToolbar.style.display = 'block';
+                    highlightToolbar.style.top = (window.scrollY + rect.top - highlightToolbar.offsetHeight - 8) + 'px';
+                    highlightToolbar.style.left = (rect.left + rect.width / 2) + 'px';
+                    currentSelectionRange = range;
+                    currentTargetPContent = pContent;
+                } else {
+                    highlightToolbar.style.display = 'none';
+                    currentSelectionRange = null;
+                    currentTargetPContent = null;
+                }
+            });
+
+            // 툴바 클릭 시 형광펜 적용
+            highlightToolbar.addEventListener('mousedown', (e) => {
+                e.preventDefault(); // 선택 해제 방지
+            });
+            highlightToolbar.addEventListener('touchstart', (e) => {
+                e.preventDefault(); // 모바일 선택 해제 방지
+            });
+
+            const applyHighlight = (e) => {
+                e.preventDefault();
+                if (currentSelectionRange && currentTargetPContent) {
+                    try {
+                        const mark = document.createElement('mark');
+                        mark.className = 'highlighted-text';
+                        
+                        // Extract contents (안에 있는 태그들도 같이 보존됨)
+                        const contents = currentSelectionRange.extractContents();
+                        mark.appendChild(contents);
+                        currentSelectionRange.insertNode(mark);
+
+                        // 선택 해제 및 툴바 숨김
+                        window.getSelection().removeAllRanges();
+                        highlightToolbar.style.display = 'none';
+
+                        // 저장
+                        saveHighlightData(currentTargetPContent.dataset.pId, currentTargetPContent.innerHTML);
+                    } catch (error) {
+                        console.error('형광펜 적용 중 에러:', error);
+                        alert('여러 문단이나 복잡한 요소를 포함해서 칠할 수 없습니다. 텍스트 위주로 다시 선택해 주세요.');
+                        window.getSelection().removeAllRanges();
+                        highlightToolbar.style.display = 'none';
+                    }
+                }
+            };
+            highlightToolbar.addEventListener('click', applyHighlight);
+            highlightToolbar.addEventListener('touchend', applyHighlight);
+
+            // 형광펜 지우기 기능 (위임 이벤트)
+            document.addEventListener('click', (e) => {
+                const target = e.target;
+                if (target.tagName.toLowerCase() === 'mark' && target.classList.contains('highlighted-text')) {
+                    if (confirm('형광펜을 지우시겠습니까?')) {
+                        const pContent = target.closest('.p-content');
+                        // mark 태그 제거 (안의 텍스트만 유지)
+                        const parent = target.parentNode;
+                        while (target.firstChild) {
+                            parent.insertBefore(target.firstChild, target);
+                        }
+                        parent.removeChild(target);
+                        
+                        // 병합된 텍스트 노드 정리
+                        parent.normalize();
+
+                        if (pContent) {
+                            saveHighlightData(pContent.dataset.pId, pContent.innerHTML);
+                        }
+                    }
+                }
+            });
 
             // --- 인증 UI 및 로직 ---
             const authContainer = document.getElementById('auth-container');
