@@ -2203,11 +2203,15 @@
                 document.documentElement.style.fontSize = currentFontScale + '%';
             }
 
+            // 초기 복원 중 스크롤 이벤트 무시 플래그
+            let isRestoring = false;
+
             // 로컬 스토리지에서 저장된 스크롤 위치(문단 인덱스) 불러오기
             const savedScrollElementIndex = localStorage.getItem('savedScrollElementIndex');
             const savedScrollPosition = localStorage.getItem('savedScrollPosition');
 
             if (savedScrollElementIndex !== null || savedScrollPosition !== null) {
+                isRestoring = true; // 복원 시작
                 // 모바일 기기의 렌더링 속도를 고려하여 모든 리소스가 불러와진 뒤에 스크롤을 이동
                 window.addEventListener('load', () => {
                     setTimeout(() => {
@@ -2218,6 +2222,7 @@
                                 const rect = targetEl.getBoundingClientRect();
                                 const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
                                 window.scrollTo(0, rect.top + scrollTop - 20); // 상단 여백 20px
+                                setTimeout(() => { isRestoring = false; }, 200); // 스크롤 안정화 후 플래그 해제
                                 return;
                             }
                         }
@@ -2225,6 +2230,7 @@
                         if (savedScrollPosition) {
                             window.scrollTo(0, parseInt(savedScrollPosition, 10));
                         }
+                        setTimeout(() => { isRestoring = false; }, 200); // 스크롤 안정화 후 플래그 해제
                     }, 300);
                 });
             }
@@ -2232,6 +2238,8 @@
             // 스크롤 위치 저장 (성능을 위해 타이머를 사용하여 디바운싱)
             let scrollTimeout;
             window.addEventListener('scroll', () => {
+                if (isRestoring) return; // 복원 중이면 저장 안 함
+
                 clearTimeout(scrollTimeout);
                 scrollTimeout = setTimeout(() => {
                     const scrollY = window.scrollY || window.pageYOffset;
