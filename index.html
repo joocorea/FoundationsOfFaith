@@ -2203,13 +2203,28 @@
                 document.documentElement.style.fontSize = currentFontScale + '%';
             }
 
-            // 로컬 스토리지에서 저장된 스크롤 위치 불러오기
+            // 로컬 스토리지에서 저장된 스크롤 위치(문단 인덱스) 불러오기
+            const savedScrollElementIndex = localStorage.getItem('savedScrollElementIndex');
             const savedScrollPosition = localStorage.getItem('savedScrollPosition');
-            if (savedScrollPosition) {
+
+            if (savedScrollElementIndex !== null || savedScrollPosition !== null) {
                 // 모바일 기기의 렌더링 속도를 고려하여 모든 리소스가 불러와진 뒤에 스크롤을 이동
                 window.addEventListener('load', () => {
                     setTimeout(() => {
-                        window.scrollTo(0, parseInt(savedScrollPosition, 10));
+                        if (savedScrollElementIndex !== null) {
+                            const elements = document.querySelectorAll('h1, h2, h3, p, li');
+                            const targetEl = elements[parseInt(savedScrollElementIndex, 10)];
+                            if (targetEl) {
+                                const rect = targetEl.getBoundingClientRect();
+                                const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                                window.scrollTo(0, rect.top + scrollTop - 20); // 상단 여백 20px
+                                return;
+                            }
+                        }
+                        // 인덱스가 없거나 요소를 못 찾은 경우 픽셀 단위 롤백
+                        if (savedScrollPosition) {
+                            window.scrollTo(0, parseInt(savedScrollPosition, 10));
+                        }
                     }, 300);
                 });
             }
@@ -2219,7 +2234,23 @@
             window.addEventListener('scroll', () => {
                 clearTimeout(scrollTimeout);
                 scrollTimeout = setTimeout(() => {
-                    localStorage.setItem('savedScrollPosition', window.scrollY || window.pageYOffset);
+                    const scrollY = window.scrollY || window.pageYOffset;
+                    localStorage.setItem('savedScrollPosition', scrollY);
+
+                    // 화면 상단에 가장 가까운 요소의 인덱스 저장
+                    const elements = document.querySelectorAll('h1, h2, h3, p, li');
+                    let targetIndex = 0;
+                    let minDistance = Infinity;
+
+                    elements.forEach((el, index) => {
+                        const rect = el.getBoundingClientRect();
+                        // 화면 상단(0)과 가장 가까운 요소 찾기
+                        if (rect.top >= -50 && rect.top < minDistance) {
+                            minDistance = rect.top;
+                            targetIndex = index;
+                        }
+                    });
+                    localStorage.setItem('savedScrollElementIndex', targetIndex);
                 }, 150);
             });
 
