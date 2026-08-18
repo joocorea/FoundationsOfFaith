@@ -2195,10 +2195,61 @@
             const btnIncreaseFont = document.getElementById('btn-increase-font');
             const btnDecreaseFont = document.getElementById('btn-decrease-font');
             let currentFontScale = 100; // 기본 100%
+
+            // 로컬 스토리지에서 저장된 글씨 크기 불러오기
+            const savedFontScale = localStorage.getItem('savedFontScale');
+            if (savedFontScale) {
+                currentFontScale = parseInt(savedFontScale, 10);
+                document.documentElement.style.fontSize = currentFontScale + '%';
+            }
+
+            // 로컬 스토리지에서 저장된 스크롤 위치 불러오기
+            const savedScrollPosition = localStorage.getItem('savedScrollPosition');
+            if (savedScrollPosition) {
+                // 요소들이 렌더링된 후 스크롤을 이동하기 위해 약간의 지연 시간을 둠
+                setTimeout(() => {
+                    window.scrollTo(0, parseInt(savedScrollPosition, 10));
+                }, 100);
+            }
+
+            // 스크롤 위치 저장 (성능을 위해 타이머를 사용하여 디바운싱)
+            let scrollTimeout;
+            window.addEventListener('scroll', () => {
+                clearTimeout(scrollTimeout);
+                scrollTimeout = setTimeout(() => {
+                    localStorage.setItem('savedScrollPosition', window.scrollY || window.pageYOffset);
+                }, 150);
+            });
+
             let hideTimeout;
 
             const updateFontSize = () => {
+                // 1. 현재 화면 상단에 가장 가까운 요소 찾기
+                const elements = document.querySelectorAll('h1, h2, h3, p, li');
+                let targetElement = null;
+                let minDistance = Infinity;
+
+                for (const el of elements) {
+                    const rect = el.getBoundingClientRect();
+                    // 화면 상단(0)과 가장 가까운 요소 찾기 (살짝 위로 넘어간 요소 포함)
+                    if (rect.top >= -50 && rect.top < minDistance) {
+                        minDistance = rect.top;
+                        targetElement = el;
+                    }
+                }
+
+                // 2. 글씨 크기 변경 및 저장
                 document.documentElement.style.fontSize = currentFontScale + '%';
+                localStorage.setItem('savedFontScale', currentFontScale);
+
+                // 3. 요소 위치 유지
+                if (targetElement) {
+                    // 레이아웃 재계산 후 위치 조정
+                    setTimeout(() => {
+                        const newRect = targetElement.getBoundingClientRect();
+                        window.scrollBy(0, newRect.top - minDistance);
+                    }, 0);
+                }
             };
 
             const resetHideTimeout = () => {
