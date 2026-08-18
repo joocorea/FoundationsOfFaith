@@ -2206,10 +2206,12 @@
             // 로컬 스토리지에서 저장된 스크롤 위치 불러오기
             const savedScrollPosition = localStorage.getItem('savedScrollPosition');
             if (savedScrollPosition) {
-                // 요소들이 렌더링된 후 스크롤을 이동하기 위해 약간의 지연 시간을 둠
-                setTimeout(() => {
-                    window.scrollTo(0, parseInt(savedScrollPosition, 10));
-                }, 100);
+                // 모바일 기기의 렌더링 속도를 고려하여 모든 리소스가 불러와진 뒤에 스크롤을 이동
+                window.addEventListener('load', () => {
+                    setTimeout(() => {
+                        window.scrollTo(0, parseInt(savedScrollPosition, 10));
+                    }, 300);
+                });
             }
 
             // 스크롤 위치 저장 (성능을 위해 타이머를 사용하여 디바운싱)
