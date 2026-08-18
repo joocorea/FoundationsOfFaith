@@ -139,12 +139,12 @@
         #highlight-toolbar::after {
             content: '';
             position: absolute;
-            top: 100%;
+            bottom: 100%;
             left: 50%;
             margin-left: -6px;
             border-width: 6px;
             border-style: solid;
-            border-color: #333 transparent transparent transparent;
+            border-color: transparent transparent #333 transparent;
         }
 
         .p-content {
@@ -164,7 +164,10 @@
             -webkit-tap-highlight-color: transparent;
         }
 
-        p:hover .memo-icon {
+        p:hover .memo-icon,
+        h3:hover .memo-icon,
+        h4:hover .memo-icon,
+        li:hover .memo-icon {
             opacity: 1;
         }
 
@@ -1890,7 +1893,8 @@
             const elementsConfig = [
                 { elements: document.querySelectorAll('.chapter-container p'), prefix: 'memo-p' },
                 { elements: document.querySelectorAll('.chapter-container h3'), prefix: 'memo-h3' },
-                { elements: document.querySelectorAll('.chapter-container h4'), prefix: 'memo-h4' }
+                { elements: document.querySelectorAll('.chapter-container h4'), prefix: 'memo-h4' },
+                { elements: document.querySelectorAll('.chapter-container li'), prefix: 'memo-li' }
             ];
 
             elementsConfig.forEach(config => {
@@ -2290,7 +2294,7 @@
                 if (pContent) {
                     const rect = range.getBoundingClientRect();
                     highlightToolbar.style.display = 'block';
-                    highlightToolbar.style.top = (window.scrollY + rect.top - highlightToolbar.offsetHeight - 8) + 'px';
+                    highlightToolbar.style.top = (window.scrollY + rect.bottom + 8) + 'px';
                     highlightToolbar.style.left = (rect.left + rect.width / 2) + 'px';
                     currentSelectionRange = range;
                     currentTargetPContent = pContent;
